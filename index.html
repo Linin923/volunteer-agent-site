@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>青年志愿服务组织智能筛选助手</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="hero">
+    <div class="container">
+      <h1>青年志愿服务组织智能筛选助手</h1>
+      <p class="subtitle">
+        输入你的需求，自动筛选合适的志愿服务组织，返回组织名称、地点、联系方式、服务时间和招募信息。
+      </p>
+      <a href="#experience" class="btn">立即体验</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="section container">
+      <h2>它能做什么</h2>
+      <div class="cards">
+        <div class="card">
+          <h3>按领域筛选</h3>
+          <p>如环保、教育、社区治理等专业领域。</p>
+        </div>
+        <div class="card">
+          <h3>按地点筛选</h3>
+          <p>如回龙观、昌平区、某个街道或社区。</p>
+        </div>
+        <div class="card">
+          <h3>按招募条件筛选</h3>
+          <p>如招募人数、服务时间、服务对象等。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section container">
+      <h2>你可以这样问</h2>
+      <ul class="examples">
+        <li>请帮我找专业领域是环境保护的志愿服务组织</li>
+        <li>我想找在回龙观地区服务的志愿服务组织</li>
+        <li>请帮我找招募人数大于等于 50 人的志愿服务组织</li>
+      </ul>
+    </section>
+
+    <section class="section container" id="experience">
+  <h2>立即体验</h2>
+
+  <div class="embed-box">
+    <textarea id="userInput" placeholder="请输入你的需求，比如：请帮我找专业领域是环境保护的志愿服务组织"></textarea>
+    <button id="sendBtn">发送</button>
+    <div id="resultBox" class="answer-box">结果会显示在这里</div>
+
+<details id="debugPanel" style="margin-top:16px;">
+  <summary>查看工具调用过程（调试用）</summary>
+  <pre id="debugBox">这里会显示工具调用过程</pre>
+</details>
+  </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>© 2026 青年志愿服务组织智能筛选助手</p>
+    </div>
+  </footer>
+
+  <!-- 这里粘贴扣子后台自动生成的 JavaScript 代码 -->
+  <!-- 把你从“JavaScript”标签页复制的整段代码，粘贴到下面 -->
+  <!-- 引入 Coze Web SDK 官方 CDN -->
+<script src="https://lf-cdn.coze.cn/obj/unpkg/latest/coze/web-sdk/dist/js-umd/index.min.js"></script>
+<script>
+  // 初始化 Web SDK
+  cozeWebSDK.init({
+    projectId: '7629967905047986217',
+    // 支持同步和异步刷新 token
+    refreshToken: () => Promise.resolve('<YOUR_TOKEN>'),
+  });
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+  const sendBtn = document.getElementById("sendBtn");
+  const userInput = document.getElementById("userInput");
+  const resultBox = document.getElementById("resultBox");
+  const debugBox = document.getElementById("debugBox");
+function escapeHtml(text) {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function formatFieldValue(label, value) {
+  const safeValue = escapeHtml(value);
+
+  // 联系方式：自动识别邮箱和电话
+  if (label === "联系方式") {
+    let html = safeValue;
+
+    html = html.replace(
+      /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g,
+      '<a href="mailto:$1">$1</a>'
+    );
+
+    html = html.replace(
+      /(\d{3,4}-\d{7,8}|\d{11})/g,
+      '<a href="tel:$1">$1</a>'
+    );
+
+    return html;
+  }
+
+  // 专业领域 / 服务地点：拆成标签
+  if (label === "专业领域" || label === "服务地点") {
+    const parts = value
+      .split(/[、，,\/]/)
+      .map(item => item.trim())
+      .filter(Boolean);
+
+    return parts
+      .map(item => `<span class="info-tag">${escapeHtml(item)}</span>`)
+      .join("");
+  }
+
+  // 招募人数：做成醒目标识
+  if (label === "招募人数") {
+    return `<span class="count-badge">${safeValue}</span>`;
+  }
+
+  return safeValue;
+}
+
+function renderVolunteerResult(text) {
+  const lines = text.split("\n").map(line => line.trim()).filter(Boolean);
+
+  let title = "";
+  let summary = "";
+  const orgs = [];
+  let currentOrg = null;
+
+  for (const line of lines) {
+    if (line.startsWith("### ")) {
+      title = line.replace(/^###\s*/, "");
+      continue;
+    }
+
+    if (line.startsWith("共找到")) {
+      summary = line;
+      continue;
+    }
+
+    if (line.startsWith("#### ")) {
+      if (currentOrg) orgs.push(currentOrg);
+      currentOrg = {
+        name: line.replace(/^####\s*/, ""),
+        fields: []
+      };
+      continue;
+    }
+
+    if (line.startsWith("- **") && currentOrg) {
+      const match = line.match(/^- \*\*(.+?)\*\*[:：]\s*(.+)$/);
+      if (match) {
+        currentOrg.fields.push({
+          label: match[1],
+          value: match[2]
+        });
+      }
+    }
+  }
+
+  if (currentOrg) orgs.push(currentOrg);
+
+  // 如果没解析出卡片结构，就退回普通 Markdown
+  if (!orgs.length) {
+    return marked.parse(text);
+  }
+
+  let html = "";
+
+  if (title) {
+    html += `<div class="result-title">${escapeHtml(title)}</div>`;
+  }
+
+  if (summary) {
+    html += `<div class="result-summary">${escapeHtml(summary)}</div>`;
+  }
+
+  html += `<div class="org-list">`;
+
+  for (const org of orgs) {
+    html += `
+      <div class="org-card">
+        <div class="org-name">${escapeHtml(org.name)}</div>
+        <div class="org-fields">
+    `;
+
+    for (const field of org.fields) {
+      let valueHtml = formatFieldValue(field.label, field.value);
+
+      html += `
+        <div class="org-field">
+          <div class="org-label">${escapeHtml(field.label)}</div>
+          <div class="org-value">${valueHtml}</div>
+        </div>
+      `;
+    }
+
+    html += `
+        </div>
+      </div>
+    `;
+  }
+
+  html += `</div>`;
+
+  return html;
+}
+  sendBtn.addEventListener("click", async () => {
+    const message = userInput.value.trim();
+
+    if (!message) {
+      resultBox.textContent = "请先输入内容。";
+      return;
+    }
+
+    resultBox.innerHTML = "<p>正在查询中，请稍候...</p>";
+    debugBox.textContent = "";
+
+    try {
+      const response = await fetch("http://localhost:3000/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ message: message })
+      });
+
+      const data = await response.json();
+
+      if (data.answer && data.answer.trim()) {
+ resultBox.innerHTML = renderVolunteerResult(data.answer);
+  debugBox.textContent = JSON.stringify(data.toolSteps, null, 2);
+} else if (data.toolResult) {
+  resultBox.innerHTML =
+    "<pre>" + escapeHtml(JSON.stringify(data.toolResult, null, 2)) + "</pre>";
+  debugBox.textContent = JSON.stringify(data.toolSteps, null, 2);
+} else {
+  resultBox.innerHTML = "<p>没有拿到可显示的结果。</p>";
+  debugBox.textContent = JSON.stringify(data, null, 2);
+}
+    } catch (error) {
+      resultBox.textContent = "请求失败：" + error;
+    }
+  });
+</script>
+
+</body>
+</html>
